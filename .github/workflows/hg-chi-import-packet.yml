@@ -1,4 +1,4 @@
-name: HG import validated CHI packet
+name: HG CHI import validated packet
 
 on:
   push:
@@ -12,68 +12,89 @@ permissions:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
-      SUBDIR: "2026-10-06-hg-gpt54mini-full75-37043550087"
-      SUB_BRANCH: "sub/chi-bench/2026-10-06-hg-gpt54mini-full75-37043550087"
+      PACKET_DIR: "2026-10-06-hg-gpt54mini-full75-37043550087"
+      TARGET_BRANCH: "sub/chi-bench/2026-10-06-hg-gpt54mini-full75-37043550087"
       ARCHIVE_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/10aacb335efdba399395b943cbc1859c396e60f3/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.tar.gz"
-      SHA_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/10aacb335efdba399395b943cbc1859c396e60f3/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.sha256"
+      ARCHIVE_SHA256: "e2fa4f536ac8ccf6fc95c76f7aad8b1f4a0d25451f4d6ae5471fab822773b692"
+      PUBLIC_CONTACT: "104028160+hgreco85@users.noreply.github.com"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout upstream leaderboard main
+        uses: actions/checkout@v4
         with:
+          repository: actava-ai/leaderboard
+          ref: main
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Start submission branch from upstream main
-        shell: bash
-        run: |
-          set -euo pipefail
-          git remote add upstream https://github.com/actava-ai/leaderboard.git || true
-          git fetch upstream main
-          git checkout -B "$SUB_BRANCH" upstream/main
-
-      - name: Download and verify validated packet
+      - name: Download and verify validated packet archive
         shell: bash
         run: |
           set -euo pipefail
           curl -fL --retry 3 --retry-delay 2 "$ARCHIVE_URL" -o /tmp/packet.tar.gz
-          curl -fL --retry 3 --retry-delay 2 "$SHA_URL" -o /tmp/packet.sha256
-          expected="$(awk '{print $1}' /tmp/packet.sha256)"
-          actual="$(sha256sum /tmp/packet.tar.gz | awk '{print $1}')"
-          echo "expected=$expected"
-          echo "actual=$actual"
-          test "$actual" = "$expected"
+          echo "$ARCHIVE_SHA256  /tmp/packet.tar.gz" | sha256sum -c -
 
-      - name: Extract packet into official leaderboard path
+      - name: Extract packet into clean upstream tree
         shell: bash
         run: |
           set -euo pipefail
-          dest="benchmarks/chi-bench/submissions"
-          test ! -e "$dest/$SUBDIR"
-          tar -C "$dest" -xzf /tmp/packet.tar.gz
-          test -f "$dest/$SUBDIR/submission.json"
-          test -d "$dest/$SUBDIR/trials"
+          target="benchmarks/chi-bench/submissions/$PACKET_DIR"
+          test ! -e "$target"
+          tar -xzf /tmp/packet.tar.gz -C benchmarks/chi-bench/submissions/
+          test -d "$target"
 
-      - name: Validate packet with leaderboard validator
+      - name: Replace placeholder contact with public GitHub noreply contact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path("benchmarks/chi-bench/submissions")/os.environ["PACKET_DIR"]
+          contact=os.environ["PUBLIC_CONTACT"]
+          mf=root/"submission.json"
+          data=json.loads(mf.read_text())
+          data["submission"]["contact"]=contact
+          mf.write_text(json.dumps(data,indent=2)+"\n")
+          sy=root/"sub.yaml"
+          text=sy.read_text()
+          text=text.replace("hgreco85@gmail.com",contact)
+          sy.write_text(text)
+          assert "hgreco85@gmail.com" not in mf.read_text()
+          assert "hgreco85@gmail.com" not in sy.read_text()
+          print("contact_sanitized",contact)
+          PY
+
+      - name: Validate packet with official leaderboard validator
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --quiet jsonschema zstandard
-          python scripts/validate.py "benchmarks/chi-bench/submissions/$SUBDIR"
+          python scripts/validate.py "benchmarks/chi-bench/submissions/$PACKET_DIR"
 
-      - name: Commit and push clean submission branch
+      - name: Ensure submission-only diff
         shell: bash
         run: |
           set -euo pipefail
-          git status --short
           changed="$(git status --porcelain | awk '{print $2}')"
           test -n "$changed"
-          if git status --porcelain | awk '{print $2}' | grep -v "^benchmarks/chi-bench/submissions/$SUBDIR/" ; then
-            echo "Unexpected path outside submission directory" >&2
+          if printf '%s\n' "$changed" | grep -Ev "^benchmarks/chi-bench/submissions/$PACKET_DIR(/|$)"; then
+            echo "Unexpected files outside submission packet" >&2
             exit 1
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "benchmarks/chi-bench/submissions/$SUBDIR"
+
+      - name: Commit clean submission branch to fork
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "hgreco85"
+          git config user.email "$PUBLIC_CONTACT"
+          git checkout -B "$TARGET_BRANCH"
+          git add "benchmarks/chi-bench/submissions/$PACKET_DIR"
           git commit -m "chi-bench: HG · hg-closure-codex · openai/gpt-5.4-mini"
-          git push --force origin "HEAD:refs/heads/$SUB_BRANCH"
-          echo "submission_branch=$SUB_BRANCH"
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/hgreco85/leaderboard.git"
+          git push --force origin "$TARGET_BRANCH"
+          echo "submission_commit=$(git rev-parse HEAD)"
