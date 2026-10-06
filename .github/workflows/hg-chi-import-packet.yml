@@ -17,7 +17,7 @@ jobs:
       PACKET_DIR: "2026-10-06-hg-gpt54mini-full75-37043550087"
       TARGET_BRANCH: "sub/chi-bench/2026-10-06-hg-gpt54mini-full75-37043550087"
       CHUNK_BRANCH: "tmp/hg-chi-packet-chunks-37043550087"
-      ARCHIVE_SHA256: "e2fa4f536ac8ccf6fc95c76f7aad8b1f4a0d25451f4d6ae5471fab822773b692"
+      ARCHIVE_SHA256: "4be329ee528301639a7ed0c9816e3a3704b8faae51d9981747e2db183cebc446"
       PUBLIC_CONTACT: "104028160+hgreco85@users.noreply.github.com"
     steps:
       - name: Checkout packet chunks from fork
