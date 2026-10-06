@@ -43,7 +43,7 @@ jobs:
           set -euo pipefail
           src="packet-source/tmp/hg-chi-packet-chunks-37043550087"
           test "$(cat "$src/part-count.txt")" = "11"
-          cat "$src"/part-* | base64 -d > /tmp/packet.tar.gz
+          cat "$src"/part-[0-9][0-9][0-9] | base64 -d > /tmp/packet.tar.gz
           echo "$ARCHIVE_SHA256  /tmp/packet.tar.gz" | sha256sum -c -
 
       - name: Extract packet into clean upstream tree
