@@ -1,0 +1,38 @@
+name: HG CHI artifact probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hg-chi-artifact-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Try public artifact download
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://api.github.com/repos/hgreco85/HG-Market-System/actions/artifacts/11246019789/zip"
+          code="$(curl -L -sS -o /tmp/provider.zip -w '%{http_code}' "$url")"
+          echo "anonymous_http=$code"
+          if unzip -t /tmp/provider.zip >/dev/null 2>&1; then
+            echo "anonymous_zip_ok=yes"
+            unzip -Z1 /tmp/provider.zip | head -5
+            exit 0
+          fi
+
+          code="$(curl -L -sS -o /tmp/provider-auth.zip -w '%{http_code}'             -H "Authorization: Bearer ${{ github.token }}"             -H "Accept: application/vnd.github+json"             "$url")"
+          echo "fork_token_http=$code"
+          if unzip -t /tmp/provider-auth.zip >/dev/null 2>&1; then
+            echo "fork_token_zip_ok=yes"
+            unzip -Z1 /tmp/provider-auth.zip | head -5
+            exit 0
+          fi
+          echo "artifact_download_unavailable"
+          exit 1
