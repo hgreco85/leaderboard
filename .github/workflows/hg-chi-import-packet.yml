@@ -16,8 +16,8 @@ jobs:
     env:
       SUBDIR: "2026-10-06-hg-gpt54mini-full75-37043550087"
       SUB_BRANCH: "sub/chi-bench/2026-10-06-hg-gpt54mini-full75-37043550087"
-      ARCHIVE_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/artifact/chi-leaderboard-hg-gpt54mini-full75-37043550087/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.tar.gz"
-      SHA_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/artifact/chi-leaderboard-hg-gpt54mini-full75-37043550087/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.sha256"
+      ARCHIVE_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/10aacb335efdba399395b943cbc1859c396e60f3/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.tar.gz"
+      SHA_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/10aacb335efdba399395b943cbc1859c396e60f3/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.sha256"
     steps:
       - uses: actions/checkout@v4
         with:
