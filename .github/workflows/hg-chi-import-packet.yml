@@ -12,31 +12,43 @@ permissions:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PACKET_DIR: "2026-10-06-hg-gpt54mini-full75-37043550087"
       TARGET_BRANCH: "sub/chi-bench/2026-10-06-hg-gpt54mini-full75-37043550087"
-      ARCHIVE_URL: "https://raw.githubusercontent.com/hgreco85/HG-Market-System/10aacb335efdba399395b943cbc1859c396e60f3/competitions/chi-bench/leaderboard-packets/2026-10-06-hg-gpt54mini-full75-37043550087.tar.gz"
+      CHUNK_BRANCH: "tmp/hg-chi-packet-chunks-37043550087"
       ARCHIVE_SHA256: "e2fa4f536ac8ccf6fc95c76f7aad8b1f4a0d25451f4d6ae5471fab822773b692"
       PUBLIC_CONTACT: "104028160+hgreco85@users.noreply.github.com"
     steps:
+      - name: Checkout packet chunks from fork
+        uses: actions/checkout@v4
+        with:
+          repository: hgreco85/leaderboard
+          ref: ${{ env.CHUNK_BRANCH }}
+          path: packet-source
+          persist-credentials: false
+
       - name: Checkout upstream leaderboard main
         uses: actions/checkout@v4
         with:
           repository: actava-ai/leaderboard
           ref: main
+          path: leaderboard
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Download and verify validated packet archive
+      - name: Reconstruct and verify packet archive
         shell: bash
         run: |
           set -euo pipefail
-          curl -fL --retry 3 --retry-delay 2 "$ARCHIVE_URL" -o /tmp/packet.tar.gz
+          src="packet-source/tmp/hg-chi-packet-chunks-37043550087"
+          test "$(cat "$src/part-count.txt")" = "11"
+          cat "$src"/part-* | base64 -d > /tmp/packet.tar.gz
           echo "$ARCHIVE_SHA256  /tmp/packet.tar.gz" | sha256sum -c -
 
       - name: Extract packet into clean upstream tree
         shell: bash
+        working-directory: leaderboard
         run: |
           set -euo pipefail
           target="benchmarks/chi-bench/submissions/$PACKET_DIR"
@@ -46,6 +58,7 @@ jobs:
 
       - name: Replace placeholder contact with public GitHub noreply contact
         shell: bash
+        working-directory: leaderboard
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -58,8 +71,7 @@ jobs:
           data["submission"]["contact"]=contact
           mf.write_text(json.dumps(data,indent=2)+"\n")
           sy=root/"sub.yaml"
-          text=sy.read_text()
-          text=text.replace("hgreco85@gmail.com",contact)
+          text=sy.read_text().replace("hgreco85@gmail.com",contact)
           sy.write_text(text)
           assert "hgreco85@gmail.com" not in mf.read_text()
           assert "hgreco85@gmail.com" not in sy.read_text()
@@ -68,6 +80,7 @@ jobs:
 
       - name: Validate packet with official leaderboard validator
         shell: bash
+        working-directory: leaderboard
         run: |
           set -euo pipefail
           python -m pip install --quiet jsonschema zstandard
@@ -75,6 +88,7 @@ jobs:
 
       - name: Ensure submission-only diff
         shell: bash
+        working-directory: leaderboard
         run: |
           set -euo pipefail
           changed="$(git status --porcelain | awk '{print $2}')"
@@ -86,6 +100,7 @@ jobs:
 
       - name: Commit clean submission branch to fork
         shell: bash
+        working-directory: leaderboard
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
