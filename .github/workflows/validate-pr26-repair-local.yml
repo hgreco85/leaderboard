@@ -1,0 +1,42 @@
+name: Validate PR26 Repair Locally
+
+on:
+  push:
+    branches:
+      - validate/pr26-repair-c2a846c
+    paths:
+      - ".github/workflows/validate-pr26-repair-local.yml"
+      - "validation/pr26-repair.trigger"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validator deps
+        run: pip install --quiet jsonschema zstandard pyyaml
+
+      - name: Run official validator on repaired packet
+        run: |
+          set -euo pipefail
+          PACKET="benchmarks/chi-bench/submissions/2026-10-06-hg-chi-full75-20261006"
+          python .github/scripts/validate_submission.py             "$PACKET"             --repo-root .             --report-md /tmp/report.md             --report-json /tmp/report.json
+          cat /tmp/report.md
+
+      - name: Upload validator report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr26-repair-local-validation-${{ github.run_id }}
+          path: |
+            /tmp/report.md
+            /tmp/report.json
+          if-no-files-found: warn
