@@ -41,10 +41,10 @@ jobs:
           set -euo pipefail
           chunk_root="packet-chunks/$CHUNK_DIR"
           test "$(cat "$chunk_root/part-count.txt")" = "11"
-          encoded_size="$(cat "$chunk_root"/part-* | wc -c)"
+          encoded_size="$(cat "$chunk_root"/part-[0-9][0-9][0-9] | wc -c)"
           expected_encoded_size="$(cat "$chunk_root/base64-size.txt")"
           test "$encoded_size" = "$expected_encoded_size"
-          cat "$chunk_root"/part-* | base64 -d > /tmp/packet.tar.gz
+          cat "$chunk_root"/part-[0-9][0-9][0-9] | base64 -d > /tmp/packet.tar.gz
           expected_sha="$(awk '{print $1}' "$chunk_root/packet.sha256")"
           echo "$expected_sha  /tmp/packet.tar.gz" | sha256sum -c -
 
